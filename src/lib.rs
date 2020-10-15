@@ -15,13 +15,20 @@ impl Core {
     }
 
     fn read_transitions(&self) -> io::Result<String> {
-        let data = fs::read_to_string(format!("{}/{}", self.directory, TRANSITIONS))?;
-        Ok(data)
+        fs::read_to_string(format!("{}/{}", self.directory, TRANSITIONS))
+    }
+
+    fn trim_comments(contents: &str) -> Vec<&str> {
+        contents
+            .lines()
+            .filter(|line| !line.starts_with('#'))
+            .collect()
     }
 
     pub fn convert(&self) -> Result<(), Box<dyn Error>> {
         let transitions = self.read_transitions()?;
-
+        let transitions = Core::trim_comments(&transitions);
+        println!("{:?}", transitions);
         Ok(())
     }
 }
