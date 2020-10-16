@@ -56,8 +56,17 @@ impl Core {
     fn format_lines(lines: &Vec<&str>) -> Vec<Vec<String>> {
         lines
             .iter()
+            .map(|line| Self::glue_bracket(line))
             .map(|line| line.split_whitespace().map(Self::format_values).collect())
             .collect()
+    }
+
+    fn glue_bracket(value: &str) -> String {
+        let mut value = String::from(value);
+        while value.contains("< ") {
+            value = value.replace("< ", "<");
+        }
+        value
     }
 
     fn format_values(value: &str) -> String {
@@ -138,6 +147,35 @@ mod tests {
             },
             value
         );
+    }
+
+    #[test]
+    fn parse_zero_value() {
+        let value: Value = "0.0(0.0)".parse().unwrap();
+        assert_eq!(Value::default(), value);
+
+        let value: Value = "0(0)".parse().unwrap();
+        assert_eq!(Value::default(), value);
+    }
+
+    #[test]
+    fn format_values() {
+        assert_eq!(Core::format_values("<0.03"), "0.03(0)");
+        assert_eq!(Core::format_values("< 10"), "10(0)");
+        assert_eq!(Core::format_values("<"), "(0)");
+    }
+
+    #[test]
+    fn format_lines() {
+        let lines = vec!["150.0(5) <0.10", "150.0(5)  <  0.10"];
+        let lines = Core::format_lines(&lines);
+        let expect = vec!["150.0(5)", "0.10(0)"];
+        assert_eq!(lines, vec![expect.clone(), expect.clone()]);
+    }
+
+    #[test]
+    fn glue_bracket() {
+        assert_eq!("<0.10", Core::glue_bracket("<   0.10"));
     }
 
     #[test]
