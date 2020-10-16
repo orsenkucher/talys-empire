@@ -32,10 +32,16 @@ impl Core {
         fs::read_to_string(format!("{}/{}", self.directory, TRANSITIONS))
     }
 
-    fn write_preprocessed(&self, file: &str, contents: &Vec<&str>) -> io::Result<()> {
+    fn write_preprocessed(&self, file: &str, contents: &Vec<Vec<String>>) -> io::Result<()> {
         let path = format!("{}/{}_{}", self.directory, "preprocessed", file);
-        let contents = contents.join("\n");
-        fs::write(path, contents)
+        fs::write(path, Self::flatten_preprocessed(contents))
+    }
+
+    fn flatten_preprocessed(contents: &Vec<Vec<String>>) -> String {
+        contents
+            .iter()
+            .map(|v| v.join("\t"))
+            .fold(String::new(), |acc, next| acc + &next + "\n")
     }
 
     fn trim_contents(contents: &str) -> Vec<&str> {
@@ -47,19 +53,31 @@ impl Core {
             .collect()
     }
 
-    fn split_lines(lines: &Vec<&str>) {
-        let transitions = lines
+    fn format_lines(lines: &Vec<&str>) -> Vec<Vec<String>> {
+        lines
             .iter()
-            .map(|line| line.split_whitespace().collect::<Transition>());
+            .map(|line| line.split_whitespace().map(Self::format_values).collect())
+            .collect()
     }
 
-    fn format_values() {}
+    fn format_values(value: &str) -> String {
+        if value.starts_with('<') {
+            format!("{}(0)", value.replace("<", "").trim())
+        } else {
+            String::from(value)
+        }
+    }
 
     pub fn convert(&self) -> Result<(), Box<dyn Error>> {
         let transitions = self.read_transitions()?;
         let trimmed = Self::trim_contents(&transitions);
-        self.write_preprocessed(TRANSITIONS, &trimmed)?;
-        // println!("{:?}", transitions);
+        let formatted = Self::format_lines(&trimmed);
+        self.write_preprocessed(TRANSITIONS, &formatted)?;
+        let transitions: Vec<Transition> = formatted
+            .iter()
+            .map(|line| line.iter().map(AsRef::as_ref).collect())
+            .collect();
+        println!("{:?}", transitions);
         Ok(())
     }
 }
