@@ -11,7 +11,7 @@ pub struct Core {
     directory: String,
 }
 
-#[derive(Debug, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 struct Value {
     value: f64,
     delta: f64,
@@ -126,12 +126,20 @@ impl Core {
         let theoretical = Self::theoretical(&trimmed);
         let thermal = Self::thermal(&theoretical);
         let low_thermal = Theoretical::low_energy(thermal);
-        let (const_talys, const_empire) = Self::norm_constants(&transitions, &low_thermal);
-        println!("tal {}; emp {}", const_talys, const_empire);
-        // let normed_talys = None;
-        // let normed_empire = None;
-        // println!("{:?}", low_thermal);
+        let consts = Self::norm_constants(&transitions, &low_thermal);
+        let (exp_talys, exp_empire) = Self::norm_exp(&transitions, consts);
+        self.write_processed("exp_talys_normed.dat", &exp_talys)?;
+        self.write_processed("exp_empire_normed.dat", &exp_empire)?;
         Ok(())
+    }
+
+    fn norm_exp(
+        transitions: &Vec<Transition>,
+        (tal, emp): (f64, f64),
+    ) -> (Vec<Transition>, Vec<Transition>) {
+        let tal_exp = transitions.iter().map(|tr| tr.norm(tal)).collect();
+        let emp_exp = transitions.iter().map(|tr| tr.norm(emp)).collect();
+        (tal_exp, emp_exp)
     }
 
     fn norm_constants(transitions: &Vec<Transition>, low_thermal: &Vec<Theoretical>) -> (f64, f64) {
@@ -169,6 +177,24 @@ impl Theoretical {
             .into_iter()
             .filter(|th| th.energy * Self::E_MULT < Self::E_MAX)
             .collect()
+    }
+}
+
+impl Transition {
+    fn norm(&self, c: f64) -> Self {
+        Self {
+            energy: self.energy.clone(),
+            intensity: self.intensity.norm(c),
+        }
+    }
+}
+
+impl Value {
+    fn norm(&self, c: f64) -> Self {
+        Self {
+            value: self.value * c,
+            delta: self.delta * c,
+        }
     }
 }
 
