@@ -1,6 +1,6 @@
 use regex::Regex;
 use std::error::Error;
-use std::{fs, io};
+use std::{fs, io, mem};
 use std::{iter::FromIterator, str::FromStr};
 
 const TRANSITIONS: &str = "114Cd_cupture_gamma_spectra.dat";
@@ -9,13 +9,13 @@ pub struct Core {
     directory: String,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 struct Value {
     value: f64,
     delta: f64,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 struct Transition {
     energy: Value,
     intensity: Value,
@@ -66,17 +66,12 @@ impl Core {
 
 impl<'a> FromIterator<&'a str> for Transition {
     fn from_iter<T: IntoIterator<Item = &'a str>>(iter: T) -> Self {
-        let v: Vec<_> = iter.into_iter().collect();
-
-        let (energy, intensity) = match &v[..] {
-            &[energy, intensity] => (energy, intensity),
+        let mut vals: Vec<_> = iter.into_iter().map(|it| it.parse().unwrap()).collect();
+        let (energy, intensity) = match &mut vals[..] {
+            [e, i] => (mem::take(e), mem::take(i)),
             _ => unreachable!("error parsing transition entries"),
         };
-
-        Self {
-            energy: energy.parse().unwrap(),
-            intensity: intensity.parse().unwrap(),
-        }
+        Self { energy, intensity }
     }
 }
 
@@ -86,8 +81,8 @@ impl FromStr for Value {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let re = Regex::new(r"(?P<value>.*?)\((?P<delta>.*?)\)")?;
         let cap = re.captures(s).ok_or("no matches")?;
-        let value = *&cap["value"].parse::<f64>()?;
-        let delta = *&cap["delta"].parse::<f64>()?;
+        let value = cap["value"].parse()?;
+        let delta = cap["delta"].parse()?;
         Ok(Self { value, delta })
     }
 }
@@ -145,9 +140,18 @@ mod tests {
     fn regex_use() {
         let re = Regex::new(r"(?P<value>.*?)\((?P<delta>.*?)\)").unwrap();
         let cap = re.captures("170.857(15)").unwrap();
-        let value = &cap["value"].parse::<f64>().unwrap();
-        let delta = &cap["delta"].parse::<f64>().unwrap();
-        assert_eq!(170.857, *value);
-        assert_eq!(15f64, *delta);
+        let value = cap["value"].parse().unwrap();
+        let delta = cap["delta"].parse().unwrap();
+        assert_eq!(170.857, value);
+        assert_eq!(15f64, delta);
+    }
+
+    #[test]
+    fn vec_remove() {
+        let mut v = vec!["a", "b"];
+        let a = v.remove(0);
+        let b = v.remove(0);
+        assert_eq!(a, "a");
+        assert_eq!(b, "b");
     }
 }
