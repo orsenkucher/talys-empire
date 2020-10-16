@@ -4,6 +4,7 @@ use std::{fmt, fs, io, mem};
 use std::{iter::FromIterator, str::FromStr};
 
 const TRANSITIONS: &str = "114Cd_cupture_gamma_spectra.dat";
+const EMPIRE_TALYS: &str = "Cd113_ng_spectra_EMP_TAL_1eV.txt";
 
 pub struct Core {
     directory: String,
@@ -17,8 +18,15 @@ struct Value {
 
 #[derive(Debug, PartialEq, Default)]
 struct Transition {
-    energy: Value,
-    intensity: Value,
+    energy: Value,    // keV
+    intensity: Value, // 1/10000n
+}
+
+#[derive(Debug, PartialEq, Default)]
+struct Theoretical {
+    energy: f64, // MeV
+    empire: f64, // mb/MeV
+    talys: f64,  // mb/MeV
 }
 
 impl Core {
@@ -30,6 +38,10 @@ impl Core {
 
     fn read_transitions(&self) -> io::Result<String> {
         fs::read_to_string(format!("{}/{}", self.directory, TRANSITIONS))
+    }
+
+    fn read_empire_talys(&self) -> io::Result<String> {
+        fs::read_to_string(format!("{}/{}", self.directory, EMPIRE_TALYS))
     }
 
     fn write_processed(&self, file: &str, trans: &Vec<Transition>) -> io::Result<()> {
@@ -90,6 +102,13 @@ impl Core {
             .collect()
     }
 
+    fn theoretical(lines: &Vec<&str>) -> Vec<Theoretical> {
+        lines
+            .iter()
+            .map(|line| line.split_whitespace().collect())
+            .collect()
+    }
+
     pub fn convert(&self) -> Result<(), Box<dyn Error>> {
         let transitions = self.read_transitions()?;
         let trimmed = Self::trim_contents(&transitions);
@@ -97,7 +116,10 @@ impl Core {
         self.write_preprocessed(TRANSITIONS, &formatted)?;
         let transitions = Self::transitions(&formatted);
         self.write_processed(TRANSITIONS, &transitions)?;
-        // println!("{:?}", transitions);
+        let empire_talys = self.read_empire_talys()?;
+        let trimmed = Self::trim_contents(&empire_talys);
+        let theoretical = Self::theoretical(&trimmed);
+        println!("{:?}", theoretical);
         Ok(())
     }
 }
@@ -113,6 +135,24 @@ impl<'a> FromIterator<&'a str> for Transition {
             _ => unreachable!("error parsing transition entries"),
         };
         Self { energy, intensity }
+    }
+}
+
+impl<'a> FromIterator<&'a str> for Theoretical {
+    fn from_iter<T: IntoIterator<Item = &'a str>>(iter: T) -> Self {
+        let mut vals: Vec<_> = iter
+            .into_iter()
+            .map(|it| it.parse().expect(&format!("failed on {}", it)))
+            .collect();
+        let (energy, empire, talys) = match &mut vals[..] {
+            [en, em, ta] => (mem::take(en), mem::take(em), mem::take(ta)),
+            _ => unreachable!("error parsing transition entries"),
+        };
+        Self {
+            energy,
+            empire,
+            talys,
+        }
     }
 }
 
