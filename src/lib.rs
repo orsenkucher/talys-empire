@@ -68,15 +68,19 @@ impl Core {
         }
     }
 
+    fn transitions(lines: &Vec<Vec<String>>) -> Vec<Transition> {
+        lines
+            .iter()
+            .map(|line| line.iter().map(AsRef::as_ref).collect())
+            .collect()
+    }
+
     pub fn convert(&self) -> Result<(), Box<dyn Error>> {
         let transitions = self.read_transitions()?;
         let trimmed = Self::trim_contents(&transitions);
         let formatted = Self::format_lines(&trimmed);
         self.write_preprocessed(TRANSITIONS, &formatted)?;
-        let transitions: Vec<Transition> = formatted
-            .iter()
-            .map(|line| line.iter().map(AsRef::as_ref).collect())
-            .collect();
+        let transitions = Self::transitions(&formatted);
         println!("{:?}", transitions);
         Ok(())
     }
@@ -84,7 +88,10 @@ impl Core {
 
 impl<'a> FromIterator<&'a str> for Transition {
     fn from_iter<T: IntoIterator<Item = &'a str>>(iter: T) -> Self {
-        let mut vals: Vec<_> = iter.into_iter().map(|it| it.parse().unwrap()).collect();
+        let mut vals: Vec<_> = iter
+            .into_iter()
+            .map(|it| it.parse().expect(&format!("failed on {}", it)))
+            .collect();
         let (energy, intensity) = match &mut vals[..] {
             [e, i] => (mem::take(e), mem::take(i)),
             _ => unreachable!("error parsing transition entries"),
