@@ -1,6 +1,6 @@
 use regex::Regex;
 use std::error::Error;
-use std::{fs, io, mem};
+use std::{fmt, fs, io, mem};
 use std::{iter::FromIterator, str::FromStr};
 
 const TRANSITIONS: &str = "114Cd_cupture_gamma_spectra.dat";
@@ -30,6 +30,12 @@ impl Core {
 
     fn read_transitions(&self) -> io::Result<String> {
         fs::read_to_string(format!("{}/{}", self.directory, TRANSITIONS))
+    }
+
+    fn write_processed(&self, file: &str, trans: &Vec<Transition>) -> io::Result<()> {
+        let path = format!("{}/{}_{}", self.directory, "processed", file);
+        let contents: String = trans.iter().map(|tr| format!("{}\n", tr)).collect();
+        fs::write(path, contents)
     }
 
     fn write_preprocessed(&self, file: &str, contents: &Vec<Vec<String>>) -> io::Result<()> {
@@ -90,7 +96,8 @@ impl Core {
         let formatted = Self::format_lines(&trimmed);
         self.write_preprocessed(TRANSITIONS, &formatted)?;
         let transitions = Self::transitions(&formatted);
-        println!("{:?}", transitions);
+        self.write_processed(TRANSITIONS, &transitions)?;
+        // println!("{:?}", transitions);
         Ok(())
     }
 }
@@ -119,6 +126,32 @@ impl FromStr for Value {
         let delta = cap["delta"].parse()?;
         Ok(Self { value, delta })
     }
+}
+
+impl fmt::Display for Transition {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} {}", self.energy, self.intensity)?;
+        Ok(())
+    }
+}
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:8.*} {:8.*}",
+            float_precision(&self.value),
+            self.value,
+            float_precision(&self.delta),
+            self.delta
+        )?;
+        Ok(())
+    }
+}
+
+fn float_precision(float: &f64) -> usize {
+    let s = float.to_string();
+    s.find('.').and_then(|i| Some(s.len() - i - 1)).unwrap_or(1)
 }
 
 //cargo test -- --nocapture
@@ -216,5 +249,19 @@ mod tests {
         let b = v.remove(0);
         assert_eq!(a, "a");
         assert_eq!(b, "b");
+    }
+
+    #[test]
+    fn precision() {
+        assert_eq!(12.0.to_string(), "12");
+        assert_eq!(float_precision(&12.0), 1);
+        assert_eq!(float_precision(&12.0), 1);
+        assert_eq!(float_precision(&12.1), 1);
+        assert_eq!(float_precision(&12.01), 2);
+        assert_eq!(float_precision(&12.000_001), 6);
+        assert_eq!(float_precision(&0.000_001), 6);
+        assert_eq!(float_precision(&0.000_000), 1);
+        assert_eq!(float_precision(&1.01e2), 1);
+        assert_eq!(float_precision(&1.0001e2), 2);
     }
 }
