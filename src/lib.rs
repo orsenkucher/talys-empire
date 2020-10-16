@@ -1,6 +1,7 @@
 use regex::Regex;
 use std::error::Error;
-use std::{fmt, fs, io, mem};
+use std::fmt::{Debug, Display};
+use std::{fmt, fs, io, marker, mem};
 use std::{iter::FromIterator, str::FromStr};
 
 const TRANSITIONS: &str = "114Cd_cupture_gamma_spectra.dat";
@@ -124,13 +125,29 @@ impl Core {
     }
 }
 
+struct Parser<I, V> {
+    _1: marker::PhantomData<I>,
+    _2: marker::PhantomData<V>,
+}
+
+impl<'a, I, V> Parser<I, V>
+where
+    I: IntoIterator<Item = &'a str>,
+    V: FromStr,
+    V::Err: Debug,
+{
+    fn value(it: &'a str) -> V {
+        it.parse().expect(&format!("failed on {}", it))
+    }
+
+    fn values(iter: I) -> Vec<V> {
+        iter.into_iter().map(Self::value).collect()
+    }
+}
+
 impl<'a> FromIterator<&'a str> for Transition {
     fn from_iter<T: IntoIterator<Item = &'a str>>(iter: T) -> Self {
-        let mut vals: Vec<_> = iter
-            .into_iter()
-            .map(|it| it.parse().expect(&format!("failed on {}", it)))
-            .collect();
-        let (energy, intensity) = match &mut vals[..] {
+        let (energy, intensity) = match &mut Parser::values(iter)[..] {
             [e, i] => (mem::take(e), mem::take(i)),
             _ => unreachable!("error parsing transition entries"),
         };
@@ -140,11 +157,7 @@ impl<'a> FromIterator<&'a str> for Transition {
 
 impl<'a> FromIterator<&'a str> for Theoretical {
     fn from_iter<T: IntoIterator<Item = &'a str>>(iter: T) -> Self {
-        let mut vals: Vec<_> = iter
-            .into_iter()
-            .map(|it| it.parse().expect(&format!("failed on {}", it)))
-            .collect();
-        let (energy, empire, talys) = match &mut vals[..] {
+        let (energy, empire, talys) = match &mut Parser::values(iter)[..] {
             [en, em, ta] => (mem::take(en), mem::take(em), mem::take(ta)),
             _ => unreachable!("error parsing transition entries"),
         };
@@ -168,14 +181,14 @@ impl FromStr for Value {
     }
 }
 
-impl fmt::Display for Transition {
+impl Display for Transition {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} {}", self.energy, self.intensity)?;
         Ok(())
     }
 }
 
-impl fmt::Display for Value {
+impl Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
