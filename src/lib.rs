@@ -125,19 +125,50 @@ impl Core {
         let trimmed = Self::trim_contents(&empire_talys);
         let theoretical = Self::theoretical(&trimmed);
         let thermal = Self::thermal(&theoretical);
-        println!("{:?}", thermal);
+        let low_thermal = Theoretical::low_energy(thermal);
+        let (const_talys, const_empire) = Self::norm_constants(&transitions, &low_thermal);
+        println!("tal {}; emp {}", const_talys, const_empire);
+        // let normed_talys = None;
+        // let normed_empire = None;
+        // println!("{:?}", low_thermal);
         Ok(())
+    }
+
+    fn norm_constants(transitions: &Vec<Transition>, low_thermal: &Vec<Theoretical>) -> (f64, f64) {
+        let pairs: Vec<_> = transitions.iter().zip(low_thermal.iter()).collect();
+        let bot: f64 = pairs
+            .iter()
+            .map(|(tr, _)| tr.intensity.value)
+            .map(|int| int.powi(2))
+            .sum();
+
+        let (up_tal, up_emp) = pairs
+            .iter()
+            .map(|(tr, lo)| (tr.intensity.value, lo.talys, lo.empire))
+            .map(|(int, tal, emp)| (int * tal, int * emp))
+            .fold((0.0, 0.0), |acc, next| (acc.0 + next.0, acc.1 + next.1));
+
+        (up_tal / bot, up_emp / bot)
     }
 }
 
 impl Theoretical {
     const C_THERMAL: f64 = 6.2869461;
+    const E_MAX: f64 = 325_000.0;
+    const E_MULT: f64 = 1E6;
     fn as_termal(&self) -> Self {
         Self {
             energy: self.energy,
             empire: Self::C_THERMAL * self.empire,
             talys: Self::C_THERMAL * self.talys,
         }
+    }
+
+    fn low_energy(thermal: Vec<Self>) -> Vec<Self> {
+        thermal
+            .into_iter()
+            .filter(|th| th.energy * Self::E_MULT < Self::E_MAX)
+            .collect()
     }
 }
 
