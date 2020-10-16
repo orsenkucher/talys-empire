@@ -110,6 +110,10 @@ impl Core {
             .collect()
     }
 
+    fn thermal(theor: &Vec<Theoretical>) -> Vec<Theoretical> {
+        theor.iter().map(Theoretical::as_termal).collect()
+    }
+
     pub fn convert(&self) -> Result<(), Box<dyn Error>> {
         let transitions = self.read_transitions()?;
         let trimmed = Self::trim_contents(&transitions);
@@ -120,8 +124,20 @@ impl Core {
         let empire_talys = self.read_empire_talys()?;
         let trimmed = Self::trim_contents(&empire_talys);
         let theoretical = Self::theoretical(&trimmed);
-        println!("{:?}", theoretical);
+        let thermal = Self::thermal(&theoretical);
+        println!("{:?}", thermal);
         Ok(())
+    }
+}
+
+impl Theoretical {
+    const C_THERMAL: f64 = 6.2869461;
+    fn as_termal(&self) -> Self {
+        Self {
+            energy: self.energy,
+            empire: Self::C_THERMAL * self.empire,
+            talys: Self::C_THERMAL * self.talys,
+        }
     }
 }
 
