@@ -160,15 +160,6 @@ impl Core {
         (up_tal / bot, up_emp / bot)
     }
 
-    fn apply<I: Iterator, F, T>(iter: I, act: F, cmp: T) -> I::Item
-    where
-        I::Item: PartialOrd,
-        T: Fn(&I::Item, &I::Item) -> std::cmp::Ordering,
-        F: Fn(I, T) -> Option<I::Item>,
-    {
-        act(iter, cmp).unwrap()
-    }
-
     fn select<'a, S: 'a + Fn(&Transition) -> B, B: PartialOrd>(
         transitions: &'a Vec<&Transition>,
         selector: &'a S,
@@ -182,8 +173,8 @@ impl Core {
     ) -> (B, B) {
         let cmp = |a: &B, b: &B| a.partial_cmp(b).unwrap();
         (
-            Self::apply(Self::select(transitions, &selector), Iterator::min_by, cmp),
-            Self::apply(Self::select(transitions, &selector), Iterator::max_by, cmp),
+            Self::select(transitions, &selector).min_by(cmp).unwrap(),
+            Self::select(transitions, &selector).max_by(cmp).unwrap(),
         )
     }
 
