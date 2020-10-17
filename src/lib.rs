@@ -2,7 +2,7 @@ use plotters::prelude::*;
 use regex::Regex;
 use std::error::Error;
 use std::fmt::{Debug, Display};
-use std::{fmt, fs, io, marker, mem};
+use std::{fmt, fs, io, mem};
 use std::{iter::FromIterator, str::FromStr};
 
 const TRANSITIONS: &str = "114Cd_cupture_gamma_spectra.dat";
@@ -160,6 +160,33 @@ impl Core {
         (up_tal / bot, up_emp / bot)
     }
 
+    fn apply<I: Iterator, F, T>(iter: I, act: F, cmp: T) -> I::Item
+    where
+        I::Item: PartialOrd,
+        T: Fn(&I::Item, &I::Item) -> std::cmp::Ordering,
+        F: Fn(I, T) -> Option<I::Item>,
+    {
+        act(iter, cmp).unwrap()
+    }
+
+    fn select<'a, S: 'a + Fn(&Transition) -> B, B: PartialOrd>(
+        transitions: &'a Vec<&Transition>,
+        selector: &'a S,
+    ) -> impl Iterator<Item = B> + 'a {
+        transitions.iter().map(ToOwned::to_owned).map(selector)
+    }
+
+    fn range<S: Fn(&Transition) -> B, B: PartialOrd>(
+        transitions: &Vec<&Transition>,
+        selector: S,
+    ) -> (B, B) {
+        let cmp = |a: &B, b: &B| a.partial_cmp(b).unwrap();
+        (
+            Self::apply(Self::select(transitions, &selector), Iterator::min_by, cmp),
+            Self::apply(Self::select(transitions, &selector), Iterator::max_by, cmp),
+        )
+    }
+
     fn plot(
         exp_talys: &Vec<Transition>,
         exp_empire: &Vec<Transition>,
@@ -167,34 +194,15 @@ impl Core {
         let root = BitMapBackend::new("plt/exp_transitions.png", (3840, 2160)).into_drawing_area();
         root.fill(&WHITE)?;
 
-        let x_min = exp_talys
-            .iter()
-            .chain(exp_empire.iter())
-            .map(|tr| tr.energy.value)
-            .min_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
-
-        let x_max = exp_talys
-            .iter()
-            .chain(exp_empire.iter())
-            .map(|tr| tr.energy.value)
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
-
-        let y_min = exp_talys
-            .iter()
-            .chain(exp_empire.iter())
-            .map(|tr| tr.intensity.value)
-            .min_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
-
-        let y_max = exp_talys
-            .iter()
-            .chain(exp_empire.iter())
-            .map(|tr| tr.intensity.value)
-            .filter(|a| *a < 200E3)
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
+        let chained: Vec<_> = exp_talys.iter().chain(exp_empire.iter()).collect();
+        let x_rng = Self::range(&chained, |tr| tr.energy.value);
+        let y_rng = Self::range(
+            &chained
+                .into_iter()
+                .filter(|tr| tr.intensity.value < 180E3)
+                .collect(),
+            |tr| tr.intensity.value,
+        );
 
         let mut chart = ChartBuilder::on(&root)
             .margin(5)
@@ -202,7 +210,7 @@ impl Core {
             .set_label_area_size(LabelAreaPosition::Left, 160)
             .set_label_area_size(LabelAreaPosition::Bottom, 160)
             .set_label_area_size(LabelAreaPosition::Right, 160)
-            .build_cartesian_2d(x_min..x_max, y_min..y_max)?;
+            .build_cartesian_2d(x_rng.0..x_rng.1, y_rng.0..y_rng.1)?;
 
         chart
             .configure_mesh()
@@ -285,11 +293,7 @@ impl Value {
     }
 }
 
-struct Parser<I, V> {
-    _1: marker::PhantomData<I>,
-    _2: marker::PhantomData<V>,
-}
-
+struct Parser<I, V>(I, V);
 impl<'a, I, V> Parser<I, V>
 where
     I: IntoIterator<Item = &'a str>,
