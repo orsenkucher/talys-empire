@@ -1,3 +1,4 @@
+use plotters::prelude::*;
 use regex::Regex;
 use std::error::Error;
 use std::fmt::{Debug, Display};
@@ -130,7 +131,7 @@ impl Core {
         let (exp_talys, exp_empire) = Self::norm_exp(&transitions, consts);
         self.write_processed("exp_talys_normed.dat", &exp_talys)?;
         self.write_processed("exp_empire_normed.dat", &exp_empire)?;
-        Ok(())
+        Self::plot(&exp_talys, &exp_empire)
     }
 
     fn norm_exp(
@@ -157,6 +158,73 @@ impl Core {
             .fold((0.0, 0.0), |acc, next| (acc.0 + next.0, acc.1 + next.1));
 
         (up_tal / bot, up_emp / bot)
+    }
+
+    fn plot(
+        exp_talys: &Vec<Transition>,
+        exp_empire: &Vec<Transition>,
+    ) -> Result<(), Box<dyn Error>> {
+        let root = BitMapBackend::new("plt/exp_transitions.png", (1920, 1080)).into_drawing_area();
+        root.fill(&WHITE)?;
+
+        let x_min = exp_talys
+            .iter()
+            .map(|tr| tr.energy.value)
+            .min_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap();
+
+        let x_max = exp_talys
+            .iter()
+            .map(|tr| tr.energy.value)
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap();
+
+        let y_min = exp_talys
+            .iter()
+            .map(|tr| tr.intensity.value)
+            .min_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap();
+
+        let y_max = exp_talys
+            .iter()
+            .map(|tr| tr.intensity.value)
+            .filter(|a| *a < 60E3)
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap();
+
+        let mut chart = ChartBuilder::on(&root)
+            .margin(5)
+            .caption("TALYS and EMPIRE", ("sans-serif", 30).into_font())
+            .set_label_area_size(LabelAreaPosition::Left, 60)
+            .set_label_area_size(LabelAreaPosition::Bottom, 60)
+            .set_label_area_size(LabelAreaPosition::Right, 60)
+            .build_cartesian_2d(x_min..x_max, y_min..y_max)?;
+
+        chart
+            .configure_mesh()
+            // .disable_x_mesh()
+            // .disable_y_mesh()
+            .y_label_formatter(&|y| format!("{:.0}%", *y * 100.0))
+            .y_desc("Percentage")
+            .draw()?;
+
+        chart
+            .draw_series(LineSeries::new(
+                exp_talys
+                    .iter()
+                    .map(|tr| (tr.energy.value, tr.intensity.value)),
+                &RED,
+            ))?
+            .label("TALYS")
+            .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));
+
+        chart
+            .configure_series_labels()
+            .background_style(&WHITE.mix(0.8))
+            .border_style(&BLACK)
+            .draw()?;
+
+        Ok(())
     }
 }
 
