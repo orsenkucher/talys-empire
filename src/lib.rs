@@ -160,22 +160,13 @@ impl Core {
         (up_tal / bot, up_emp / bot)
     }
 
-    fn select<'a, S: 'a + Fn(&Transition) -> B, B: PartialOrd>(
-        transitions: &'a Vec<&Transition>,
-        selector: &'a S,
-    ) -> impl Iterator<Item = B> + 'a {
-        transitions.iter().map(ToOwned::to_owned).map(selector)
-    }
-
     fn range<S: Fn(&Transition) -> B, B: PartialOrd>(
         transitions: &Vec<&Transition>,
         selector: S,
     ) -> (B, B) {
         let cmp = |a: &B, b: &B| a.partial_cmp(b).unwrap();
-        (
-            Self::select(transitions, &selector).min_by(cmp).unwrap(),
-            Self::select(transitions, &selector).max_by(cmp).unwrap(),
-        )
+        let select = || transitions.iter().map(ToOwned::to_owned).map(&selector);
+        (select().min_by(cmp).unwrap(), select().max_by(cmp).unwrap())
     }
 
     fn plot(
