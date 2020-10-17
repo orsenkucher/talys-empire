@@ -186,13 +186,16 @@ impl Core {
             |tr| tr.intensity.value,
         );
 
+        let rng = |(a, b): (f64, f64)| (a..b);
+        let (x_rng, y_rng) = (rng(x_rng), rng(y_rng));
+
         let mut chart = ChartBuilder::on(&root)
             .margin(5)
             .caption("TALYS and EMPIRE", ("sans-serif", 30).into_font())
             .set_label_area_size(LabelAreaPosition::Left, 160)
             .set_label_area_size(LabelAreaPosition::Bottom, 160)
             .set_label_area_size(LabelAreaPosition::Right, 160)
-            .build_cartesian_2d(x_rng.0..x_rng.1, y_rng.0..y_rng.1)?;
+            .build_cartesian_2d(x_rng, y_rng)?;
 
         chart
             .configure_mesh()
