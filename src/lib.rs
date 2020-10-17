@@ -164,48 +164,56 @@ impl Core {
         exp_talys: &Vec<Transition>,
         exp_empire: &Vec<Transition>,
     ) -> Result<(), Box<dyn Error>> {
-        let root = BitMapBackend::new("plt/exp_transitions.png", (1920, 1080)).into_drawing_area();
+        let root = BitMapBackend::new("plt/exp_transitions.png", (3840, 2160)).into_drawing_area();
         root.fill(&WHITE)?;
 
         let x_min = exp_talys
             .iter()
+            .chain(exp_empire.iter())
             .map(|tr| tr.energy.value)
             .min_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap();
 
         let x_max = exp_talys
             .iter()
+            .chain(exp_empire.iter())
             .map(|tr| tr.energy.value)
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap();
 
         let y_min = exp_talys
             .iter()
+            .chain(exp_empire.iter())
             .map(|tr| tr.intensity.value)
             .min_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap();
 
         let y_max = exp_talys
             .iter()
+            .chain(exp_empire.iter())
             .map(|tr| tr.intensity.value)
-            .filter(|a| *a < 60E3)
+            .filter(|a| *a < 200E3)
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap();
 
         let mut chart = ChartBuilder::on(&root)
             .margin(5)
             .caption("TALYS and EMPIRE", ("sans-serif", 30).into_font())
-            .set_label_area_size(LabelAreaPosition::Left, 60)
-            .set_label_area_size(LabelAreaPosition::Bottom, 60)
-            .set_label_area_size(LabelAreaPosition::Right, 60)
+            .set_label_area_size(LabelAreaPosition::Left, 160)
+            .set_label_area_size(LabelAreaPosition::Bottom, 160)
+            .set_label_area_size(LabelAreaPosition::Right, 160)
             .build_cartesian_2d(x_min..x_max, y_min..y_max)?;
 
         chart
             .configure_mesh()
             // .disable_x_mesh()
             // .disable_y_mesh()
-            .y_label_formatter(&|y| format!("{:.0}%", *y * 100.0))
-            .y_desc("Percentage")
+            .axis_desc_style(("sans-serif", 24))
+            .label_style(("sans-serif", 24))
+            .x_label_formatter(&|x| format!("{:.0}", *x))
+            .x_desc("Energy, keV")
+            .y_label_formatter(&|y| format!("{:.0}", *y))
+            .y_desc("Intensity, lo^4 normalized")
             .draw()?;
 
         chart
@@ -219,7 +227,18 @@ impl Core {
             .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));
 
         chart
+            .draw_series(LineSeries::new(
+                exp_empire
+                    .iter()
+                    .map(|tr| (tr.energy.value, tr.intensity.value)),
+                &BLUE,
+            ))?
+            .label("EMPIRE")
+            .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLUE));
+
+        chart
             .configure_series_labels()
+            .label_font(("sans-serif", 24))
             .background_style(&WHITE.mix(0.8))
             .border_style(&BLACK)
             .draw()?;
