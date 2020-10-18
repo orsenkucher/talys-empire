@@ -466,4 +466,13 @@ mod tests {
         assert_eq!(float_precision(&1.01e2), 1);
         assert_eq!(float_precision(&1.0001e2), 2);
     }
+
+    #[test]
+    fn copy_from() {
+        let mut src = vec![1, 2, 3, 4];
+        let out = &mut src[..];
+        let to_copy = 3;
+        out[..to_copy].copy_from_slice(&vec![4, 5, 6, 7][..to_copy]);
+        assert_eq!(out, vec![4, 5, 6, 4]);
+    }
 }
