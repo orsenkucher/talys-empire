@@ -173,7 +173,8 @@ impl Core {
         exp_talys: &Vec<Transition>,
         exp_empire: &Vec<Transition>,
     ) -> Result<(), Box<dyn Error>> {
-        let root = BitMapBackend::new("plt/exp_transitions.png", (3840, 2160)).into_drawing_area();
+        let root =
+            BitMapBackend::new("plt/exp_transitions.png", (3840 / 2, 2160 / 2)).into_drawing_area();
         root.fill(&WHITE)?;
 
         let chained: Vec<_> = exp_talys.iter().chain(exp_empire.iter()).collect();
@@ -188,10 +189,14 @@ impl Core {
 
         let rng = |(a, b): (f64, f64)| (a..b);
         let (x_rng, y_rng) = (rng(x_rng), rng(y_rng));
+        let y_rng = 0.0..y_rng.end;
 
         let mut chart = ChartBuilder::on(&root)
             .margin(5)
-            .caption("TALYS and EMPIRE", ("sans-serif", 30).into_font())
+            .caption(
+                "Experimental normed Talys/Empire",
+                ("sans-serif", 30).into_font(),
+            )
             .set_label_area_size(LabelAreaPosition::Left, 160)
             .set_label_area_size(LabelAreaPosition::Bottom, 160)
             .set_label_area_size(LabelAreaPosition::Right, 160)
@@ -224,7 +229,8 @@ impl Core {
                 exp_empire
                     .iter()
                     .map(|tr| (tr.energy.value, tr.intensity.value)),
-                &BLUE,
+                // &BLUE,
+                ShapeStyle::from(&BLUE).stroke_width(1),
             ))?
             .label("EMPIRE")
             .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLUE));
