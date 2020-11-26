@@ -131,7 +131,8 @@ impl Core {
         let (exp_talys, exp_empire) = Self::norm_exp(&transitions, consts);
         self.write_processed("exp_talys_normed.dat", &exp_talys)?;
         self.write_processed("exp_empire_normed.dat", &exp_empire)?;
-        Self::plot(&exp_talys, &exp_empire)
+        Self::plot(&exp_talys, &exp_empire)?;
+        Self::plot2(&low_thermal)
     }
 
     fn norm_exp(
@@ -167,6 +168,97 @@ impl Core {
         let cmp = |a: &B, b: &B| a.partial_cmp(b).unwrap();
         let select = || transitions.iter().map(ToOwned::to_owned).map(&selector);
         (select().min_by(cmp).unwrap(), select().max_by(cmp).unwrap())
+    }
+
+    fn range2<S: Fn(&(f64, f64)) -> B, B: PartialOrd>(
+        transitions: &Vec<&(f64, f64)>,
+        selector: S,
+    ) -> (B, B) {
+        let cmp = |a: &B, b: &B| a.partial_cmp(b).unwrap();
+        let select = || transitions.iter().map(ToOwned::to_owned).map(&selector);
+        (select().min_by(cmp).unwrap(), select().max_by(cmp).unwrap())
+    }
+
+    fn plot2(theor: &Vec<Theoretical>) -> Result<(), Box<dyn Error>> {
+        let root =
+            BitMapBackend::new("plt/theoretical.png", (3840 / 2, 2160 / 2)).into_drawing_area();
+        root.fill(&WHITE)?;
+
+        let tal_vals: Vec<_> = theor
+            .iter()
+            .map(|x| (x.energy * 1e3, x.talys * 1e-1))
+            .collect();
+
+        let emp_vals: Vec<_> = theor
+            .iter()
+            .map(|x| (x.energy * 1e3, x.empire * 1e-1))
+            .collect();
+
+        let chained: Vec<_> = tal_vals.iter().chain(emp_vals.iter()).collect();
+        let x_rng = Self::range2(&chained, |tr| tr.0);
+        let y_rng = Self::range2(&chained, |tr| tr.1);
+        // let y_rng = Self::range2(
+        //     &chained
+        //         .into_iter()
+        //         .filter(|tr| tr.intensity.value < 180E3)
+        //         .collect(),
+        //     |tr| tr.intensity.value,
+        // );
+
+        let rng = |(a, b): (f64, f64)| (a..b);
+        let (x_rng, y_rng) = (rng(x_rng), rng(y_rng));
+        println!("x: {:?}; y: {:?}", x_rng, y_rng);
+        println!("tal len: {}", tal_vals.len());
+        println!("emp len: {}", emp_vals.len());
+        println!("EMP: {:#?}", emp_vals);
+
+        let y_rng = 0.0..y_rng.end;
+
+        let mut chart = ChartBuilder::on(&root)
+            .margin(5)
+            .caption("Theoretical Talys/Empire", ("sans-serif", 30).into_font())
+            .set_label_area_size(LabelAreaPosition::Left, 160)
+            .set_label_area_size(LabelAreaPosition::Bottom, 160)
+            .set_label_area_size(LabelAreaPosition::Right, 160)
+            .build_cartesian_2d(x_rng, y_rng)?;
+
+        chart
+            .configure_mesh()
+            // .disable_x_mesh()
+            // .disable_y_mesh()
+            .axis_desc_style(("sans-serif", 24))
+            .label_style(("sans-serif", 24))
+            .x_label_formatter(&|x| format!("{:.0}", *x))
+            .x_desc("Energy, keV")
+            .y_label_formatter(&|y| format!("{:.0}", *y))
+            .y_desc("Intensity, lo^4 normalized")
+            .draw()?;
+
+        chart
+            .draw_series(LineSeries::new(
+                tal_vals.iter().map(|tr| (tr.0, tr.1)),
+                &RED,
+            ))?
+            .label("TALYS")
+            .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));
+
+        chart
+            .draw_series(LineSeries::new(
+                emp_vals.iter().map(|tr| (tr.0, tr.1)),
+                // &BLUE,
+                ShapeStyle::from(&BLUE).stroke_width(1),
+            ))?
+            .label("EMPIRE")
+            .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLUE));
+
+        chart
+            .configure_series_labels()
+            .label_font(("sans-serif", 24))
+            .background_style(&WHITE.mix(0.8))
+            .border_style(&BLACK)
+            .draw()?;
+
+        Ok(())
     }
 
     fn plot(
