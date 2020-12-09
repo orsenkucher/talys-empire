@@ -17,8 +17,8 @@ with open("emp.txt") as fl:
     if (float(l[2])>180000.0):
       continue
     xs.append(float(l[0])/1000)
-    ys.append(float(l[2]))
-
+    ys.append(float(l[2])*6.2869461)
+# 6.2869461
 
 xs2 = []
 ys2 = []
@@ -31,7 +31,7 @@ with open("tal.txt") as fl:
     # if (float(l[2])>180000.0):
     #   continue
     xs2.append(float(l[0])/1000)
-    ys2.append(float(l[2]))
+    ys2.append(float(l[2])*6.2869461)
 
 xs0 = []
 ys10 = []

@@ -18,8 +18,12 @@ with open("data.txt") as fl:
     ys2.append(float(l[2]))
 
 print(len(xs), len(ys1), len(ys2))
+xs = xs[:-1]
+ys1 = ys1[:-1]
+ys2 = ys2[:-1]
 
 fig, ax = plt.subplots()
+ax.set_yscale('log')
 ax.plot(xs, ys1,'.', ls='-', label='Empire')
 ax.plot(xs, ys2,'.', ls='-', color="r",label='Talys')
 # ax.scatter([1,3],[2,5])
